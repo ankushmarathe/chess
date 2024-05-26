@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chessboard Example</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+    integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+    integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2"
+    crossorigin="anonymous"></script>
+
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"
+    integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD"
+    crossorigin="anonymous"></script>
+
+  <style>
+    .block {
+      display: none;
+      padding: 20px;
+      border: 1px solid #ccc;
+      margin: 10px 0;
+    }
+
+    .block.active {
+      display: block;
+    }
+  </style>
+
+</head>
+
+<body style="height: 100%;overflow-y: auto; ">
+  <button id="darkModeButton" class="circle-button">🌓</button>
+  <div id="welcome" class="block active">
+    <img src="img/chessboard.png" alt="Chess Board" class="chess-board">
+    <h1>Welcome to Chess World</h1>
+    <p>Ready to play? Click the button below to join a game!</p>
+    <button style="margin-left: 34%;" onclick="init()">Join Game</button>
+    <h3 id="init"></h3>
+    <div class="chess-pieces">
+      <img src="img/knightl.png" alt="Chess Piece" class="chess-piece">
+      <img src="img/king.png" alt="Chess Piece" class="chess-piece">
+      <img src="img/knightr.png" alt="Chess Piece" class="chess-piece">
+    </div>
+  </div>
+  <div id="gameStarted" class="block ">
+    <!-- Chessboard container -->
+    <div style="display: flex;">
+      <h3>Opponent`s Time ></h3>
+      <h3 id="timer" class="timer">
+        <div id="timer"></div>
+      </h3>
+    </div>
+    <div id="myBoard" style="width: 400px"></div>
+    <label>Status:</label>
+    <div id="status"></div>
+    <label>FEN:</label>
+    <div id="fen"></div>
+    <label>PGN:</label>
+    <div id="pgn"></div>
+
+    <div>
+      <h3 id="timer" class="timer" style="display: flex;">
+        Your Time >
+        <div id="myTimer"></div>
+      </h3>
+    </div>
+  </div>
+  <div id="result" style="margin-top: 20px auto;" class="block">
+    <style>
+      .messagee {
+        margin-bottom: 20px;
+        font-size: 28px;
+        font-weight: bold;
+        animation: fadeInDown 1s ease-out;
+      }
+
+      .buttonss {
+        display: flex;
+        gap: 15px;
+      }
+
+      buttons:hover {
+        transform: scale(1.1);
+        background-color: rgba(255, 255, 255, 0.5);
+      }
+
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+    <div id="resultmsg" class="messagee">This is a message at the top</div>
+    <div class="buttonss">
+      <button style="padding: 15px 30px;
+          font-size: 18px;
+          cursor: pointer;
+          border: none;
+          border-radius: 5px;
+          background-color: rgba(0, 0, 0, 0.744);
+          color: white;
+          transition: transform 0.2s, background-color 0.3s;" id="rematchbtn" onclick="rematch()">Rematch</button>
+      <button style="padding: 15px 30px;
+          font-size: 18px;
+          cursor: pointer;
+          border: none;
+          border-radius: 5px;
+          background-color: rgba(0, 0, 0, 0.744);
+          color: white;
+          transition: transform 0.2s, background-color 0.3s;" onclick="initNew()">New Opponent</button>
+    </div>
+  </div>
+</body>
+
+</html>
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  document.getElementById('darkModeButton').addEventListener('click', function () {
+    document.body.classList.toggle('dark-mode');
+  });
+  // Connect to the server
+  const socket = io();
+  socket.emit('join');
+  socket.emit('message', 'Hello, world!');
+
+  function rematch() {
+    socket.emit('message', 'rematch');
+  }
+  function initNew() {
+    document.getElementById('resultmsg').innerHTML = "searching for opponent...";
+    init();
+  }
+  function init() {
+    document.getElementById('init').innerHTML = "searching for opponent...";
+    socket.emit('message', 'init');
+  }
+</script>
+
+
+
+<script src="chess.js"></script>
+<script>
+  // NOTE: this example uses the chess.js library:
+  // https://github.com/jhlywa/chess.js
+
+  var board = null
+
+
+
+
+  var game = new Chess()
+  var $status = $('#status')
+  var $fen = $('#fen')
+  var $pgn = $('#pgn')
+  var whiteSquareGrey = ''
+  var blackSquareGrey = ''
+  var time = 180
+  var otime = 180
+  var $myTimer = $('#myTimer')
+  var $timer = $('#timer')
+  clearIntervalVar = null;
+
+  var myTurn;
+  socket.on('moveReceived', data => {
+    let { move, myTime, oTime } = data;
+    otime = oTime
+    game.move({
+      from: move.from,
+      to: move.to,
+      promotion: 'q' // NOTE: always promote to a queen for example simplicity
+    });
+
+    myTurn = true;
+    if (move === null) return 'snapback'
+    if (myTurn) {
+      whiteSquareGrey = '#a9a9a9'
+      blackSquareGrey = '#696969'
+    }
+    updateStatus();
+    board.position(game.fen())
+  })
+
+
+  socket.on('rematch', () => {
+    let confirm = window.confirm('Want to rematch?');
+    if (confirm) {
+      socket.emit('message', 'rematch:accepted');
+    }
+  })
+
+  socket.on('gameOver', (message) => {
+    if (message === 'user left') {
+      alert('Opponent left the game');
+      clearInterval(clearIntervalVar);
+      window.location.reload();
+    }
+    if(message === 'timeout'){
+      alert('Timeout');
+      clearInterval(clearIntervalVar);
+    }
+  });
+
+  socket.on('gameStarted', ({ myturn, orientation }) => {
+    $myTimer.html(`3: 00`)
+    $timer.html(`3: 00`)
+    time = 180,
+      otime = 180,
+      myTurn = myturn;
+    if (myTurn) {
+      whiteSquareGrey = '#a9a9a9'
+      blackSquareGrey = '#696969'
+    }
+    timer(180);
+    var config = {
+      draggable: true,
+      position: 'start',
+      onDragStart: onDragStart,
+      onDrop: onDrop,
+      onSnapEnd: onSnapEnd,
+      onMouseoutSquare: onMouseoutSquare,
+      onMouseoverSquare: onMouseoverSquare,
+      orientation: orientation
+    }
+    board = Chessboard('myBoard', config)
+    const gameStarted = document.getElementById('gameStarted');
+    const welcome = document.getElementById('welcome');
+    const result = document.getElementById('result');
+    result.classList.remove('active');
+    welcome.classList.remove('active');
+    gameStarted.classList.add('active');
+  });
+
+
+  function timer(minutes) {
+    clearIntervalVar = setInterval(updateTime, 1000);
+  }
+
+  function updateTime() {
+    if (myTurn) {
+      let min = Math.floor(time / 60);
+      let sec = time % 60;
+      $myTimer.html(`${min}: ${sec}`)
+      time--;
+    } else {
+      let min = Math.floor(otime / 60);
+      let sec = otime % 60;
+      $timer.html(`${min}: ${sec}`)
+      otime--;
+    }
+
+    if (time <= 0 || otime <= 0) {
+      socket.emit('message', { type: 'timeout', color: game.turn() });
+      clearFun();
+    }
+  }
+
+  function clearFun() {
+    clearInterval(clearIntervalVar);
+    clearIntervalVar = null;
+  }
+
+  function onDragStart(source, piece, position, orientation) {
+    // do not pick up pieces if the game is over
+    if (game.game_over()) return false
+    if (!myTurn) return false;
+    // only pick up pieces for the side to move
+    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+      (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+      return false
+    }
+  }
+
+  function onDrop(source, target) {
+    // see if the move is legal
+    var move = game.move({
+      from: source,
+      to: target,
+      promotion: 'q' // NOTE: always promote to a queen for example simplicity
+    })
+
+    // illegal move
+    if (move === null) return 'snapback'
+
+    updateStatus();
+    myTurn = false;
+    if (!myTurn) {
+      whiteSquareGrey = ''
+      blackSquareGrey = ''
+    }
+    socket.emit('message', { type: 'move', data: move, time: time });
+  }
+
+  // update the board position after the piece snap
+  // for castling, en passant, pawn promotion
+  function onSnapEnd() {
+    board.position(game.fen())
+  }
+
+  function greySquare(square) {
+    var $square = $('#myBoard .square-' + square)
+
+    var background = whiteSquareGrey
+    if ($square.hasClass('black-3c85d')) {
+      background = blackSquareGrey
+    }
+
+    $square.css('background', background)
+  }
+
+  function onMouseoverSquare(square, piece) {
+    // get list of possible moves for this square
+    var moves = game.moves({
+      square: square,
+      verbose: true
+    })
+
+    // exit if there are no moves available for this square
+    if (moves.length === 0) return
+
+    // highlight the square they moused over
+    greySquare(square)
+
+    // highlight the possible squares for this piece
+    for (var i = 0; i < moves.length; i++) {
+      greySquare(moves[i].to)
+    }
+  }
+
+  function onMouseoutSquare(square, piece) {
+    removeGreySquares()
+  }
+
+  function removeGreySquares() {
+    $('#myBoard .square-55d63').css('background', '')
+  }
+
+  function updateStatus() {
+    var status = ''
+
+    var moveColor = 'White'
+    if (game.turn() === 'b') {
+      moveColor = 'Black'
+    }
+
+    // checkmate?
+    if (game.in_checkmate()) {
+      status = 'Game over, ' + moveColor + ' is in checkmate.'
+      const result = document.getElementById('result');
+      result.classList.add('active');
+      const resultmsg = document.getElementById('resultmsg');
+      resultmsg.innerHTML = status;
+    }
+
+    // draw?
+    else if (game.in_draw()) {
+      status = 'Game over, drawn position'
+      const result = document.getElementById('result');
+      result.classList.add('active');
+      const resultmsg = document.getElementById('resultmsg');
+      resultmsg.innerHTML = status;
+    }
+
+    // game still on
+    else {
+      status = moveColor + ' to move'
+
+      // check?
+      if (game.in_check()) {
+        status += ', ' + moveColor + ' is in check'
+      }
+    }
+
+    $status.html(status)
+    $fen.html(game.fen())
+    $pgn.html(game.pgn())
+  }
+
+
+
+  updateStatus()
+</script>

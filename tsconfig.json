@@ -1,0 +1,14 @@
+// {
+//     "compilerOptions": {
+//       "target": "es6",
+//       "module": "commonjs",
+//       "strict": true,
+//       "esModuleInterop": true,
+//       "outDir": "./dist",
+//       "baseUrl": "./src",
+//       "moduleResolution": "node",
+//       "forceConsistentCasingInFileNames": true
+//     },
+//     "include": ["src/**/*"]
+//   }
+  
